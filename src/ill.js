@@ -1,0 +1,51 @@
+// Картинки-наклейки к вопросам (SVG, рисованные)
+const _pin = (x,y,c) => `<path class="${c} o" d="M${x} ${y}c-12-14-14-22-14-28a14 14 0 0 1 28 0c0 6-2 14-14 28z"/>`;
+const _star = (cx,cy,r,c) => { let d=''; for (let i=0;i<10;i++){ const a=Math.PI/5*i-Math.PI/2, rr=i%2?r*.45:r; d+=(i?'L':'M')+(cx+rr*Math.cos(a)).toFixed(1)+' '+(cy+rr*Math.sin(a)).toFixed(1); } return `<path class="${c} o" d="${d}Z"/>`; };
+const _house = (x,w,h,c) => `<path class="${c} o" d="M${x} 162V${162-h}l${w/2} -${w*.45} ${w/2} ${w*.45}V162z"/><rect class="w o" x="${x+w*.3}" y="${162-h*.62}" width="${w*.4}" height="${h*.3}" rx="2"/>`;
+const _tower = (x,w,h,c) => `<rect class="${c} o" x="${x}" y="${172-h}" width="${w}" height="${h}" rx="4"/><path class="l dash" d="M${x+w*.34} ${182-h}V160M${x+w*.66} ${182-h}V160"/>`;
+const ILL = {
+  school:`<path class="a0 o" d="M60 92v32c20 20 60 20 80 0V92l-40 16z"/><path class="a2 o" d="M100 46l72 32-72 32-72-32z"/><path class="l" d="M172 78v40"/><circle class="a1 o" cx="172" cy="124" r="8"/>`,
+  calendar:`<rect class="a0 o" x="38" y="50" width="124" height="112" rx="16"/><path class="a1 o" d="M38 66a16 16 0 0 1 16-16h92a16 16 0 0 1 16 16v20H38z"/><path class="l" d="M72 36v26M128 36v26"/><path class="l dash" d="M58 112h84M58 138h84"/><circle class="a3 o" cx="128" cy="138" r="12"/>`,
+  cat:`<path class="a2 o" d="M64 98l-4-38 28 22zM136 98l4-38-28 22z"/><path class="a2 o" d="M56 158c-6-52 12-82 44-82s50 30 44 82z"/><path class="l" d="M144 158c24 0 32-18 20-34"/><circle cx="86" cy="110" r="5" class="eye"/><circle cx="114" cy="110" r="5" class="eye"/><path class="l" d="M94 124l6 6 6-6"/>`,
+  tv:`<path class="l" d="M78 34l22 26 24-30"/><rect class="a2 o" x="30" y="60" width="140" height="98" rx="18"/><rect class="a0 o" x="46" y="76" width="82" height="66" rx="10"/><circle class="a3 o" cx="150" cy="92" r="8"/><circle class="a1 o" cx="150" cy="122" r="8"/><path class="l" d="M64 176h72"/>`,
+  remote:`<rect class="a2 o" x="70" y="28" width="60" height="146" rx="22"/><circle class="a1 o" cx="100" cy="62" r="13"/><path class="l" d="M88 102h24M88 124h24M88 146h24M152 52c14 12 14 32 0 44M164 40c24 20 24 48 0 68"/>`,
+  clapper:`<path class="a3 o" d="M32 66l122-22 6 30-122 22z"/><rect class="a1 o" x="36" y="96" width="128" height="74" rx="10"/><path class="l" d="M60 62l14 26M94 56l14 26M128 50l14 26"/>`,
+  sleep:`<path class="a2 o" d="M128 154a58 58 0 1 1-8-114a46 46 0 1 0 8 114z"/><path class="l" d="M132 44h24l-24 28h24M162 92h16l-16 18h16"/>`,
+  book:`<path class="a0 o" d="M100 58c-20-12-46-14-66-10v102c20-4 46-2 66 10z"/><path class="a3 o" d="M100 58c20-12 46-14 66-10v102c-20-4-46-2-66 10z"/>`,
+  planet:`<circle class="a1 o" cx="100" cy="100" r="46"/><ellipse class="l" cx="100" cy="100" rx="86" ry="22" transform="rotate(-20 100 100)"/>${_star(156,40,11,'a3')}${_star(40,160,9,'a0')}`,
+  stars:`${_star(46,100,22,'a3')}${_star(100,100,22,'a3')}${_star(154,100,22,'w')}<path class="l" d="M28 150L172 50"/>`,
+  door:`<path class="a0 o" d="M36 96l64-52 64 52v68H36z"/><rect class="a3 o" x="50" y="106" width="22" height="22" rx="3"/><path class="a1 o" d="M86 112h28v52H86z"/><path class="a2 o" d="M114 112l20 10v50l-20-8z"/>`,
+  popcorn:`<circle class="a3 o" cx="72" cy="80" r="16"/><circle class="a3 o" cx="128" cy="80" r="16"/><circle class="a3 o" cx="100" cy="68" r="18"/><path class="a1 o" d="M58 90h84l-12 80H70z"/><path class="l" d="M84 92l2 76M116 92l-2 76"/>`,
+  console:`<rect class="a2 o" x="22" y="70" width="156" height="66" rx="24"/><rect class="a0 o" x="62" y="80" width="76" height="46" rx="6"/><path class="l" d="M38 103h16M46 95v16"/><circle class="a1 o" cx="156" cy="96" r="5"/><circle class="a3 o" cx="146" cy="112" r="5"/>`,
+  spotlight:`<path d="M72 64L36 172h128L128 64z" class="beam"/><rect class="a1 o" x="64" y="30" width="72" height="36" rx="10"/><path class="l" d="M36 172h128"/>${_star(100,138,20,'a3')}`,
+  phone:`<path class="a1 o" d="M50 92c0-32 100-32 100 0l-10 14h-20l-4-12H84l-4 12H60z"/><rect class="a0 o" x="56" y="112" width="88" height="56" rx="14"/><circle class="w o" cx="100" cy="140" r="13"/><path class="l" d="M152 52l12-12M162 70h16M48 52L36 40"/>`,
+  pins:`<path class="a0 o" d="M28 62l48-18 48 18 48-18v102l-48 18-48-18-48 18z"/><path class="l" d="M76 44v102M124 62v102"/>${_pin(58,108,'a1')}${_pin(102,132,'a3')}${_pin(148,96,'a2')}`,
+  pencil:`<path class="l" d="M24 172h152"/><path class="a3 o" d="M78 172V62h44v110z"/><path class="a1 o" d="M78 62h44l-22-38z"/><path class="l dash" d="M90 80v84M110 80v84"/>`,
+  lamp:`<path class="l" d="M64 172V58c0-18 36-18 46 0"/><path class="beam" d="M104 72L84 140h52L120 72z"/><path class="a3 o" d="M98 58h28l-6 14h-16z"/><path class="a2 o" d="M100 158c0-12 8-18 22-18h16l6-10 6 12c6 6 4 16-2 18v12h-8v-8h-22v8h-8z"/><path class="l" d="M30 172h140"/>`,
+  ship:`<path class="a3 o" d="M104 46l44 70h-44z"/><path class="a1 o" d="M96 58l-36 58h36z"/><path class="l" d="M100 130V36"/><path class="a0 o" d="M40 130h120l-18 30H58z"/><path class="l" d="M20 176c20-8 40 8 60 0s40-8 60 0 30 6 40 0"/>`,
+  window:`<path class="a1 o" d="M56 62l44-28 44 28z"/><rect class="a0 o" x="64" y="68" width="72" height="80" rx="3"/><path class="l" d="M100 68v80M64 108h72"/><path class="a3 o" d="M54 150h92v10H54z"/><path class="l" d="M58 170c10 8 20-8 30 0s20-8 30 0 20-8 30 0"/>`,
+  houses:`<path class="l" d="M20 162h160"/>${_house(24,46,52,'a1')}${_house(77,46,70,'a0')}${_house(130,46,46,'a2')}`,
+  towers:`<path class="l" d="M20 172h160"/>${_tower(36,36,118,'a0')}${_tower(82,36,134,'a2')}${_tower(128,36,110,'a1')}`,
+  mess:`<path class="a1 o" d="M36 84l26-18h20c4 10 28 10 32 0h20l26 18-14 20-12-8v58H64V96l-14 8z" transform="rotate(-10 100 110)"/><path class="a0 o" d="M128 128h18v-22h14v32c0 8-6 12-14 12h-18z" transform="rotate(24 140 130)"/><circle class="a3 o" cx="50" cy="164" r="10"/><path class="l" d="M150 46l10-10M164 62h14M34 42l12 10"/>`,
+  lily:`<ellipse class="a3 o" cx="68" cy="144" rx="46" ry="18"/><ellipse class="a3 o" cx="142" cy="154" rx="36" ry="14"/><path class="a2 o" d="M100 132c-30-6-40-30-34-46 18 4 30 18 34 46zM100 132c30-6 40-30 34-46-18 4-30 18-34 46zM100 132c-12-24-10-50 0-64 10 14 12 40 0 64z"/>`,
+  arch:`<path class="a0 o" d="M30 172V60h140v112z"/><path class="hole" d="M76 172v-50a24 24 0 0 1 48 0v50z"/><rect class="a3 o" x="44" y="76" width="22" height="22" rx="3"/><rect class="a3 o" x="134" y="76" width="22" height="22" rx="3"/><circle cx="94" cy="148" r="4" class="glow"/><circle cx="106" cy="148" r="4" class="glow"/>`,
+  statue:`<path class="l" d="M30 172h140"/><rect class="a0 o" x="60" y="82" width="80" height="90" rx="6"/><rect class="a2 o" x="50" y="68" width="100" height="16" rx="4"/><circle class="a1 o" cx="100" cy="50" r="5"/><path class="l" d="M100 56v12M100 58l9-7"/>`,
+  plane:`<g transform="rotate(-18 100 100)"><path class="a0 o" d="M24 100c0-8 8-12 20-12h110c14 0 24 6 24 12s-10 12-24 12H44c-12 0-20-4-20-12z"/><path class="a2 o" d="M92 88l-24-46h18l40 46zM92 112l-24 46h18l40-46zM40 90l-12-26h12l20 26z"/></g>`,
+  river:`<rect class="a1 o" x="18" y="60" width="28" height="44" rx="3"/><rect class="a2 o" x="156" y="108" width="28" height="48" rx="3"/><path class="a0 o" d="M70 20c34 30-36 60 0 90s34 60 0 70h50c34-10 0-40 34-70s-34-60-34-90z"/>`,
+  deer:`<path class="a1 o" d="M56 152v-40c0-14 10-22 26-22h38l8-24-10-18 16 6 6-12 4 16 12 4-14 6v14l8 14-14 12v44h-14v-30H84v30z"/><path class="l dash" d="M68 112h52M70 130h48"/>`,
+  note:`<rect class="a3 o" x="24" y="56" width="152" height="88" rx="12"/><circle class="a0 o" cx="70" cy="100" r="24"/><path class="l" d="M108 84h50M108 100h36M108 116h50"/>`,
+  poster:`<rect class="a1 o" x="46" y="36" width="108" height="138" rx="6" transform="rotate(-4 100 104)"/><rect class="a3 o" x="80" y="24" width="40" height="18" rx="3"/><path class="l" d="M70 72h60M70 92h40" transform="rotate(-4 100 104)"/>${_star(102,136,20,'a2')}`,
+  elevator:`<rect class="a2 o" x="44" y="40" width="112" height="132" rx="8"/><path class="l" d="M100 40v132M62 66h22M116 66h22"/><path class="a3 o" d="M100 12l14 16H86z"/>`,
+  mic:`<rect class="a1 o" x="78" y="28" width="44" height="78" rx="22"/><path class="l" d="M60 92c0 26 18 40 40 40s40-14 40-40M100 132v34M74 168h52"/>`,
+  flag:`<path class="l" d="M60 176V28"/><path class="a3 o" d="M60 34h86l-16 26 16 26H60z"/><circle class="a0 o" cx="134" cy="142" r="26"/><path class="a1 o" d="M134 122l7 20-7 20-7-20z"/>`,
+  bear:`<circle class="a1 o" cx="62" cy="62" r="20"/><circle class="a1 o" cx="138" cy="62" r="20"/><circle class="a1 o" cx="100" cy="108" r="56"/><ellipse class="a3 o" cx="100" cy="128" rx="24" ry="18"/><circle cx="80" cy="98" r="6" class="eye"/><circle cx="120" cy="98" r="6" class="eye"/><circle cx="100" cy="122" r="6" class="eye"/>`,
+  marker:`<path class="a2 o" d="M40 140l80-80 20 20-80 80-26 6z"/><path class="a0 o" d="M120 60l14-14 20 20-14 14z"/><path class="l" d="M60 178c20-16 30 8 50-6s30 8 60-10"/>`,
+  camera:`<circle class="a1 o" cx="62" cy="50" r="18"/><circle class="a1 o" cx="104" cy="50" r="18"/><rect class="a0 o" x="28" y="70" width="104" height="76" rx="12"/><path class="a2 o" d="M132 92l40-20v72l-40-20z"/>`,
+  bus:`<rect class="a3 o" x="44" y="32" width="112" height="130" rx="18"/><rect class="a0 o" x="58" y="50" width="84" height="56" rx="6"/><circle class="a1 o" cx="72" cy="134" r="8"/><circle class="a1 o" cx="128" cy="134" r="8"/><path class="l" d="M64 162v14M136 162v14"/>`,
+  mug:`<path class="a3 o" d="M48 60h84v104a10 10 0 0 1-10 10H58a10 10 0 0 1-10-10z"/><path class="l" d="M132 84h16a14 14 0 0 1 14 14v26a14 14 0 0 1-14 14h-16M70 88v70M90 88v70M110 88v70"/><path class="w o" d="M42 66c-6-20 14-30 26-20 8-14 30-14 38 0 12-10 32-2 26 20z"/>`,
+};
+const ill = n => ILL[n] ? `<svg viewBox="0 0 200 200" class="illsvg" aria-hidden="true">${ILL[n]}</svg>` : '';
+const MYST = { arh:'a0', vol:'a2', both:'a1', slava:'a3', yulia:'a1', r3:'a2' };
+const mystery = cat => `<svg viewBox="0 0 200 200" class="illsvg" aria-hidden="true"><path class="${MYST[cat] || 'a1'} o" d="M100 26c40 0 74 26 74 70s-30 80-74 78-76-34-74-78 34-70 74-70z"/><path class="l qm" d="M76 82c0-17 12-29 26-29s26 11 26 25c0 19-26 21-26 40"/><circle cx="102" cy="148" r="8" class="eye"/></svg>`;
+export const questionIll = Q => Q.spoil ? mystery(Q.cat) : ill(Q.ill);
+export { ill };
