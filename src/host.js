@@ -71,6 +71,7 @@ async function init() {
     game = data;
     history.replaceState(null, '', `?g=${game.code}`);
   }
+  buildPlan();
   qrSvg = await QRCode.toString(playUrl(), { type: 'svg', margin: 1, color: { dark: '#151936', light: '#FFFFFF' } });
   Object.values(PHOTOS).forEach(p => { new Image().src = p.src; });
   await Promise.all([loadPlayers(), loadAnswers()]);
@@ -252,40 +253,67 @@ function spawn(r) {
   setTimeout(() => el.remove(), 3600);
 }
 
-const HEADS = ['head-slava', 'head-yulia', 'head-s-bar', 'head-s-car', 'head-s-glasses', 'head-s-masks', 'head-s-pool',
-  'head-y-bar', 'head-y-car', 'head-y-glasses', 'head-y-masks'].map(n => `/photos/${n}.png`);
+// Головы: отдельно Славы и Юли. Порядок перемешивается для каждой игры,
+// одна и та же голова не повторяется, пока не покажутся все остальные
+const S_HEADS = ['head-slava', 'head-s-bar', 'head-s-car', 'head-s-glasses', 'head-s-masks', 'head-s-pool'];
+const Y_HEADS = ['head-yulia', 'head-y-bar', 'head-y-car', 'head-y-glasses', 'head-y-masks'];
 const POLAROIDS = ['masks', 'pool', 'glasses', 'car', 'bar'];
 
-// Случайность, но одна и та же для одного экрана: при обновлении страницы головы не прыгают
 function rng(seed) {
   let h = 2166136261;
   for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
   return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
 }
-const pickHeads = (r, n) => { const pool = [...HEADS]; return Array.from({ length: n }, () => pool.splice(Math.floor(r() * pool.length), 1)[0]); };
-const headImg = (src, cls) => `<img class="head ${cls}" src="${src}" alt="">`;
+function shuffle(a, r) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+// «колода»: выдаёт элементы по одному, перемешивает заново, когда кончились, и не даёт повтора на стыке
+function deck(list, r) {
+  let cur = [], last = null;
+  return () => {
+    if (!cur.length) { cur = shuffle([...list], r); if (cur[0] === last && cur.length > 1) cur.push(cur.shift()); }
+    return (last = cur.shift());
+  };
+}
+
+let PLAN = {};
+function buildPlan() {
+  const r = rng(game.code);
+  const s = deck(S_HEADS, r), y = deck(Y_HEADS, r), pol = deck(POLAROIDS, r);
+  let flip = r() < .5;
+  const one = () => [(flip = !flip) ? s() : y()];          // одиночные головы чередуются: Слава, Юля, Слава…
+  const two = () => (r() < .5 ? [s(), y()] : [y(), s()]); // пара — всегда Слава + Юля
+  PLAN = { 'lobby:0': one() };
+  let n = 0;
+  QUESTIONS.forEach((q, i) => {
+    if (q.round) { PLAN[`intro:${i}`] = q.round === 3 ? two() : one(); return; }
+    n++;
+    if (n % 3 === 0) PLAN[`pol:${i}`] = pol();
+    else if (n % 3 === 1) PLAN[`board:${i}`] = one();
+    if (i === QUESTIONS.length - 1 || QUESTIONS[i + 1].round) PLAN[`roundsum:${i}`] = two();
+  });
+  const last = QUESTIONS.length - 1;
+  PLAN[`podium:${last}`] = two();
+  PLAN[`table:${last}`] = one();
+  PLAN[`awards:${last}`] = two();
+}
+
+const headImg = (name, cls) => name ? `<img class="head ${cls}" src="/photos/${name}.png" alt="">` : '';
 
 // Головы появляются только в «безопасных» местах каждого экрана
 function heads() {
-  const r = rng(`${game.code}:${game.phase}:${game.q_index}`);
+  const i = game.q_index;
+  const h = PLAN[`${game.phase}:${game.phase === 'lobby' ? 0 : i}`] || [];
   switch (game.phase) {
-    case 'lobby': return headImg(pickHeads(r, 1)[0], 'top lobby');
-    case 'intro': {
-      const hs = pickHeads(r, Q().round === 3 ? 2 : 1);
-      return headImg(hs[0], 'peek-br') + (hs[1] ? headImg(hs[1], 'peek-br2') : '');
-    }
+    case 'lobby': return headImg(h[0], 'top lobby');
+    case 'intro': return headImg(h[0], 'peek-br') + headImg(h[1], 'peek-br2');
     case 'board': {
-      const n = QN();
-      if (n % 3 === 0) {
-        const key = POLAROIDS[(n / 3 - 1) % POLAROIDS.length];
-        return `<div class="polaroid ${n % 2 ? 'l' : 'r'}"><img src="${PHOTOS[key].src}" alt=""></div>`;
-      }
-      return r() < .6 ? headImg(pickHeads(r, 1)[0], 'board-r') : '';
+      const key = PLAN[`pol:${i}`];
+      if (key) return `<div class="polaroid ${QN() % 2 ? 'l' : 'r'}"><img src="${PHOTOS[key].src}" alt=""></div>`;
+      return headImg(h[0], 'board-r');
     }
-    case 'roundsum': { const [a, b] = pickHeads(r, 2); return headImg(a, 'peek-c1') + headImg(b, 'peek-c2'); }
-    case 'podium': { const [a, b] = pickHeads(r, 2); return headImg(a, 'hype l') + headImg(b, 'hype r'); }
-    case 'table': return headImg(pickHeads(r, 1)[0], 'top');
-    case 'awards': { const [a, b] = pickHeads(r, 2); return headImg(a, 'corner a') + headImg(b, 'corner b'); }
+    case 'roundsum': return headImg(h[0], 'peek-c1') + headImg(h[1], 'peek-c2');
+    case 'podium': return headImg(h[0], 'hype l') + headImg(h[1], 'hype r');
+    case 'table': return headImg(h[0], 'top');
+    case 'awards': return headImg(h[0], 'corner a') + headImg(h[1], 'corner b');
     default: return '';
   }
 }
