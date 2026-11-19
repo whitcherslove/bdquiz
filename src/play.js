@@ -1,6 +1,6 @@
 import { sb } from './supabase.js';
 import { QUESTIONS, QT } from './questions.js';
-import { esc, badge, isLong, limitMs, pts, rightText } from './shared.js';
+import { esc, badge, isLong, limitMs, pts, rightText, REACTIONS } from './shared.js';
 
 const code = new URLSearchParams(location.search).get('g');
 const app = document.getElementById('app');
@@ -94,6 +94,20 @@ async function answer(value) {
   }
 }
 
+/* ---------- реакции ---------- */
+let lastReact = 0;
+const reactPanel = () => `<div class="react"><p>Отправь реакцию на большой экран</p>
+  <div class="rgrid">${REACTIONS.slice(0, 6).map(k => `<button class="rbtn e" data-r="${k}">${k}</button>`).join('')}</div>
+  <div class="rgrid words">${REACTIONS.slice(6).map(k => `<button class="rbtn" data-r="${k}">${k}</button>`).join('')}</div>
+  <div class="rsent" id="rsent"></div></div>`;
+async function react(kind) {
+  if (Date.now() - lastReact < 1200) return;
+  lastReact = Date.now();
+  const el = document.getElementById('rsent');
+  if (el) el.textContent = `Улетело на экран: ${kind}`;
+  await sb.from('reactions').insert({ game_id: game.id, player_id: me.id, kind });
+}
+
 /* ---------- экраны ---------- */
 function renderJoin() {
   show(`<h3 style="margin-top:16px">Привет! Как тебя зовут?</h3><p>Имя появится на большом экране.</p>
@@ -162,23 +176,35 @@ function render() {
   const q = Q();
   switch (game.phase) {
     case 'lobby': return show(center('', `Ты в игре, ${esc(me.name)}!`, 'Смотри на большой экран, скоро начнём.'));
-    case 'intro': return show(center(`${q.round}`, esc(q.title), 'Смотри на большой экран.'));
+    case 'intro': return show(center(`${q.round}`, esc(q.title), 'Смотри на большой экран.') + reactPanel());
     case 'question': return renderQuestion(q);
     case 'reveal': return renderReveal(q);
     case 'board':
     case 'roundsum': {
       const k = rank();
-      const gap = k > 1 && standing[k - 2] ? `До ${esc(standing[k - 2].name)} ${pts(standing[k - 2].score - me.score)}` : 'Ты лидируешь!';
-      return show(center(`${k}`, 'место', `${pts(me.score)}. ${gap}`));
+      const gap = k > 1 && standing[k - 2] ? `${esc(standing[k - 2].name)} впереди на ${pts(standing[k - 2].score - me.score)}` : 'Ты лидируешь!';
+      return show(center(`${k}`, 'место', `${pts(me.score)}. ${gap}`) + (game.phase === 'roundsum' ? reactPanel() : ''));
     }
     default:
-      return show(center(`${rank()}`, 'место в итоге', `${pts(me.score)}. Спасибо, что празднуешь с нами!`));
+      return show(center(`${rank()}`, 'место в итоге', `${pts(me.score)}. Спасибо, что празднуешь с нами!`) + reactPanel());
   }
 }
 
 app.addEventListener('click', e => {
   const b = e.target.closest('.pans');
   if (b) answer(Number(b.dataset.i));
+  const r = e.target.closest('.rbtn');
+  if (r) react(r.dataset.r);
 });
+
+// Подстраховка: если realtime-соединение рвётся, раз в 2,5 секунды проверяем фазу игры сами
+setInterval(async () => {
+  if (!game) return;
+  const { data } = await sb.from('games').select().eq('id', game.id).maybeSingle();
+  if (data && (data.phase !== game.phase || data.q_index !== game.q_index)) {
+    game = data;
+    await onChange();
+  }
+}, 2500);
 
 init();

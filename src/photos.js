@@ -11,7 +11,6 @@ export const PHOTOS = {
   'bar1': { src: '/photos/bar1.jpg', ar: 1.4936 },
   'bar2': { src: '/photos/bar2.jpg', ar: 1.4936 },
   'cat': { src: '/photos/cat.jpg', ar: 1.3333 },
-  'band': { src: '/photos/band.jpg', ar: 1.3333 },
   'chest': { src: '/photos/chest.jpg', ar: 1.3281 },
   'note500': { src: '/photos/note500.jpg', ar: 2.3061 },
   'kozuli': { src: '/photos/kozuli.jpg', ar: 1.1307 },

@@ -1,8 +1,8 @@
 import { TIME } from './questions.js';
 
-export const LETTERS = ['А', 'Б', 'В', 'Г'];
+export const LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З', 'И'];
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-export const badge = i => `<span class="badge b${i}">${LETTERS[i]}</span>`;
+export const badge = i => `<span class="badge b${i % 4}">${LETTERS[i]}</span>`;
 export const isLong = o => o.some(x => x.length > 30);
 export const limitMs = Q => (Q.time || TIME) * 1000;
 
@@ -27,3 +27,7 @@ export function score(Q, value, ms) {
 }
 
 export const rightText = Q => Q.type === 'num' ? `${Q.answer} ${Q.unit}` : Q.type === 'text' ? Q.answerText : Q.options[Q.correct];
+
+// Реакции между раундами: эмодзи и слова
+export const REACTIONS = ['🔥', '😂', '🤯', '👏', '❤️', '🥂', 'База', 'Имба', 'Жиза', 'Вайб', 'Пушка', 'Душно'];
+export const REACT_PHASES = ['intro', 'roundsum', 'podium', 'table', 'awards'];

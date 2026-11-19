@@ -3,19 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#151936">
 <title>Квиз про Славу и Юлю</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@500;600;700;800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@500;600;700;800&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="/src/style.css">
 </head>
 <body class="play">
 <main class="ph">
-  <div class="center">
-    <h3>Квиз про Славу и Юлю</h3>
-    <p>Гости заходят по QR-коду с большого экрана.</p>
+  <h3 style="margin-top:16px">Квиз про Славу и Юлю</h3>
+  <p>Введи код с большого экрана.</p>
+  <label for="code">Код игры</label>
+  <div class="numin" style="margin-top:0">
+    <input id="code" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000" aria-label="Код игры">
   </div>
-  <a class="pbtn" href="/host.html" style="text-align:center;text-decoration:none">Открыть экран для ТВ</a>
+  <button class="pbtn" id="go" disabled>Войти</button>
+  <a href="/host.html" style="color:var(--haze);font-size:13px;text-align:center;margin-top:18px">Экран для ТВ</a>
 </main>
+<script>
+  const inp = document.getElementById('code'), btn = document.getElementById('go');
+  const go = () => { const c = inp.value.replace(/\D/g, ''); if (c.length === 4) location.href = '/play.html?g=' + c; };
+  inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, ''); btn.disabled = inp.value.length !== 4; });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  btn.addEventListener('click', go);
+</script>
 </body>
 </html>

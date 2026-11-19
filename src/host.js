@@ -3,7 +3,7 @@ import { sb } from './supabase.js';
 import { QUESTIONS, QT, TITLE } from './questions.js';
 import { PHOTOS } from './photos.js';
 import { ill, questionIll } from './ill.js';
-import { esc, badge, isLong, limitMs, pts, score } from './shared.js';
+import { esc, badge, isLong, limitMs, pts, score, REACT_PHASES } from './shared.js';
 
 const tv = document.getElementById('tv');
 const msg = document.getElementById('msg');
@@ -17,6 +17,8 @@ let tick = null;
 let startLocal = 0;
 let busy = false;
 let qrSvg = '';
+const seenReact = new Set();
+let lastReactTs = '1970-01-01T00:00:00Z';
 
 /* ---------- экран 1280×720, вписанный в любой телевизор ---------- */
 function fit() {
@@ -72,6 +74,8 @@ async function init() {
   qrSvg = await QRCode.toString(playUrl(), { type: 'svg', margin: 1, color: { dark: '#151936', light: '#FFFFFF' } });
   Object.values(PHOTOS).forEach(p => { new Image().src = p.src; });
   await Promise.all([loadPlayers(), loadAnswers()]);
+  const { data: old } = await sb.from('reactions').select('id,created_at').eq('game_id', game.id).order('created_at');
+  (old || []).forEach(r => { seenReact.add(r.id); lastReactTs = r.created_at; });
   subscribe();
   if (game.phase === 'question') startLocal = Date.parse(game.q_started_at);
   render();
@@ -88,6 +92,7 @@ function subscribe() {
       if (!answers.some(x => x.id === a.id)) answers.push(a);
       if (game.phase === 'question') updateCount();
     })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reactions', filter: `game_id=eq.${game.id}` }, ({ new: r }) => spawn(r))
     .subscribe(status => { if (status === 'CHANNEL_ERROR') showMsg('Нет связи с сервером. Проверь интернет', 4000); });
 }
 
@@ -229,6 +234,45 @@ function awards() {
   return list;
 }
 
+/* ---------- реакции и головы ---------- */
+function spawn(r) {
+  if (r.created_at > lastReactTs) lastReactTs = r.created_at;
+  if (seenReact.has(r.id)) return;
+  seenReact.add(r.id);
+  const fx = document.getElementById('fx');
+  if (!fx || !REACT_PHASES.includes(game.phase) || fx.childElementCount > 30) return;
+  const el = document.createElement('div');
+  el.className = 'fxb';
+  el.style.left = `${4 + Math.random() * 86}%`;
+  const word = /^[А-Яа-яЁё]/.test(r.kind);
+  el.innerHTML = (word
+    ? `<span class="w" style="background:${CONF[Math.floor(Math.random() * 4)]};transform:rotate(${(Math.random() * 16 - 8).toFixed(1)}deg)">${esc(r.kind)}</span>`
+    : `<span class="e">${esc(r.kind)}</span>`) + `<span class="n">${esc(nameOf(r.player_id))}</span>`;
+  fx.appendChild(el);
+  setTimeout(() => el.remove(), 3600);
+}
+
+const HEADS = { s: '/photos/head-slava.png', y: '/photos/head-yulia.png' };
+const headImg = (who, cls) => `<img class="head ${cls}" src="${HEADS[who]}" alt="">`;
+function heads() {
+  switch (game.phase) {
+    case 'intro': {
+      const r = Q().round;
+      return r === 1 ? headImg('s', 'peek-br') : r === 2 ? headImg('y', 'peek-br') : headImg('s', 'peek-br') + headImg('y', 'peek-bl');
+    }
+    case 'board': {
+      const n = QN();
+      if (n % 3) return '';
+      return n % 6 === 0 ? headImg('y', 'side-l') : headImg('s', 'side-r');
+    }
+    case 'roundsum': return headImg('s', 'side-r') + headImg('y', 'side-l late');
+    case 'podium': return headImg('s', 'hype l') + headImg('y', 'hype r');
+    case 'table': return headImg('y', 'top');
+    case 'awards': return headImg('s', 'corner a') + headImg('y', 'corner b');
+    default: return '';
+  }
+}
+
 /* ---------- экраны ---------- */
 const head = q => `<div class="qhead"><span class="tag ${q.cat}"><i></i>${esc(q.label)}</span><span class="count">${QN()} из ${QT}</span></div>`;
 const ringHtml = () => `<div class="ring"><svg viewBox="0 0 88 88"><circle class="bg" cx="44" cy="44" r="38"/><circle class="fg" id="ringfg" cx="44" cy="44" r="38" stroke-dasharray="${RC}" stroke-dashoffset="0"/></svg><b id="timer">${Math.round(limitMs(Q()) / 1000)}</b></div>`;
@@ -265,7 +309,7 @@ function viewQuestion(q) {
     return `<div class="view">${head(q)}<div class="qrow"><div class="qleft"><h2 class="qtext">${esc(q.text)}</h2><div class="meta">${ringHtml()}${answeredHtml()}</div></div><div class="illcard">${questionIll(q)}</div></div>
       <div class="numbox"><b>123</b>Вводите число на телефоне. Чем ближе к правде, тем больше очков</div>${showAnswer}</div>`;
   }
-  return `<div class="view">${head(q)}<div class="qrow"><div class="qleft"><h2 class="qtext ${q.text.length > 70 ? 'long' : ''}">${esc(q.text)}</h2><div class="meta">${ringHtml()}${answeredHtml()}</div></div><div class="illcard">${questionIll(q)}</div></div>
+  return `<div class="view">${head(q)}<div class="qrow${q.imgQ ? ' wide' : ''}"><div class="qleft"><h2 class="qtext ${q.text.length > 70 ? 'long' : ''}">${esc(q.text)}</h2><div class="meta">${ringHtml()}${answeredHtml()}</div></div>${q.imgQ ? pcard(q.imgQ) : `<div class="illcard">${questionIll(q)}</div>`}</div>
     ${optsHtml(q, false)}${showAnswer}</div>`;
 }
 
@@ -304,7 +348,7 @@ function render() {
   switch (game.phase) {
     case 'lobby':
       html = `<div class="view"><div class="lobby">
-          <div><div class="qr">${qrSvg}</div><p class="join">Наведите камеру телефона<b>Код ${game.code}</b></p></div>
+          <div><div class="qr">${qrSvg}</div><p class="join">Наведите камеру телефона или откройте <b>${esc(location.host)}</b> и введите код <b class="code">${game.code}</b></p></div>
           <div><h2>${esc(TITLE)}</h2><p class="sub"><span id="pcount">0</span> в игре</p><ul class="chips" id="chips"></ul></div>
         </div>${foot('Начать игру')}</div>`;
       break;
@@ -354,7 +398,7 @@ function render() {
       break;
   }
   if (game.phase !== 'lobby') html = html.replace(/(<div class="foot"[^>]*>)/, '$1<button class="btn back" data-act="back">Назад</button>');
-  tv.innerHTML = `<div class="lace top"></div>${html}<div class="lace bottom"></div>`;
+  tv.innerHTML = `<div class="lace top"></div>${html}${heads()}<div class="fx" id="fx"></div><div class="lace bottom"></div>`;
   if (game.phase === 'lobby') updateLobby();
 }
 
@@ -380,5 +424,23 @@ document.addEventListener('keydown', e => {
   if (k === 'arrowleft' && game.phase !== 'lobby') back();
   if (k === 'arrowright' || k === ' ') { e.preventDefault(); game.phase === 'question' ? reveal() : game.phase !== 'awards' && next(); }
 });
+
+// Подстраховка: если realtime-соединение рвётся (VPN, фильтры), раз в 2 секунды сверяемся с базой сами
+setInterval(async () => {
+  if (!game || busy) return;
+  if (game.phase === 'lobby') { await loadPlayers(); updateLobby(); return; }
+  if (REACT_PHASES.includes(game.phase)) {
+    const { data: rs } = await sb.from('reactions').select().eq('game_id', game.id).gt('created_at', lastReactTs).order('created_at');
+    (rs || []).forEach(spawn);
+    return;
+  }
+  if (game.phase !== 'question') return;
+  const [, { data }] = await Promise.all([
+    loadPlayers(),
+    sb.from('answers').select().eq('game_id', game.id).eq('q_index', game.q_index),
+  ]);
+  (data || []).forEach(a => { if (!answers.some(x => x.id === a.id)) answers.push(a); });
+  updateCount();
+}, 2000);
 
 init();

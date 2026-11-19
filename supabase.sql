@@ -1,6 +1,7 @@
 -- Supabase → SQL Editor → New query → вставить всё → Run
 -- Скрипт можно запускать повторно: он пересоздаёт таблицы (старые игры удалятся)
 
+drop table if exists reactions cascade;
 drop table if exists answers cascade;
 drop table if exists players cascade;
 drop table if exists games cascade;
@@ -76,3 +77,22 @@ begin
      set score = coalesce((select sum(points) from answers where player_id = p.id), 0)
    where p.game_id = p_game;
 end $$;
+
+-- Права для публичного ключа (в новых проектах Supabase они не выдаются автоматически)
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table games, players, answers to anon, authenticated;
+grant execute on function start_question(uuid, int), apply_results(uuid, jsonb), clear_from(uuid, int) to anon, authenticated;
+
+-- Реакции гостей между раундами
+create table if not exists reactions (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references games(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  kind text not null check (char_length(kind) between 1 and 12),
+  created_at timestamptz not null default now()
+);
+alter table reactions enable row level security;
+drop policy if exists party_reactions on reactions;
+create policy party_reactions on reactions for all using (true) with check (true);
+grant select, insert, update, delete on table reactions to anon, authenticated;
+alter publication supabase_realtime add table reactions;
