@@ -252,26 +252,40 @@ function spawn(r) {
   setTimeout(() => el.remove(), 3600);
 }
 
-const HEADS = { s: '/photos/head-slava.png', y: '/photos/head-yulia.png' };
+const HEADS = ['head-slava', 'head-yulia', 'head-s-bar', 'head-s-car', 'head-s-glasses', 'head-s-masks', 'head-s-pool',
+  'head-y-bar', 'head-y-car', 'head-y-glasses', 'head-y-masks'].map(n => `/photos/${n}.png`);
 const POLAROIDS = ['masks', 'pool', 'glasses', 'car', 'bar'];
-const headImg = (who, cls) => `<img class="head ${cls}" src="${HEADS[who]}" alt="">`;
+
+// Случайность, но одна и та же для одного экрана: при обновлении страницы головы не прыгают
+function rng(seed) {
+  let h = 2166136261;
+  for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+}
+const pickHeads = (r, n) => { const pool = [...HEADS]; return Array.from({ length: n }, () => pool.splice(Math.floor(r() * pool.length), 1)[0]); };
+const headImg = (src, cls) => `<img class="head ${cls}" src="${src}" alt="">`;
+
+// Головы появляются только в «безопасных» местах каждого экрана
 function heads() {
+  const r = rng(`${game.code}:${game.phase}:${game.q_index}`);
   switch (game.phase) {
+    case 'lobby': return headImg(pickHeads(r, 1)[0], 'top lobby');
     case 'intro': {
-      const r = Q().round;
-      return r === 1 ? headImg('s', 'peek-br') : r === 2 ? headImg('y', 'peek-br') : headImg('s', 'peek-br') + headImg('y', 'peek-br2');
+      const hs = pickHeads(r, Q().round === 3 ? 2 : 1);
+      return headImg(hs[0], 'peek-br') + (hs[1] ? headImg(hs[1], 'peek-br2') : '');
     }
     case 'board': {
-      // вместо голов — ваши фото, по очереди, на каждой третьей таблице
       const n = QN();
-      if (n % 3) return '';
-      const key = POLAROIDS[(n / 3 - 1) % POLAROIDS.length];
-      return `<div class="polaroid ${n % 2 ? 'l' : 'r'}"><img src="${PHOTOS[key].src}" alt=""></div>`;
+      if (n % 3 === 0) {
+        const key = POLAROIDS[(n / 3 - 1) % POLAROIDS.length];
+        return `<div class="polaroid ${n % 2 ? 'l' : 'r'}"><img src="${PHOTOS[key].src}" alt=""></div>`;
+      }
+      return r() < .6 ? headImg(pickHeads(r, 1)[0], 'board-r') : '';
     }
-    case 'roundsum': return headImg('s', 'peek-c1') + headImg('y', 'peek-c2');
-    case 'podium': return headImg('s', 'hype l') + headImg('y', 'hype r');
-    case 'table': return headImg('y', 'top');
-    case 'awards': return headImg('s', 'corner a') + headImg('y', 'corner b');
+    case 'roundsum': { const [a, b] = pickHeads(r, 2); return headImg(a, 'peek-c1') + headImg(b, 'peek-c2'); }
+    case 'podium': { const [a, b] = pickHeads(r, 2); return headImg(a, 'hype l') + headImg(b, 'hype r'); }
+    case 'table': return headImg(pickHeads(r, 1)[0], 'top');
+    case 'awards': { const [a, b] = pickHeads(r, 2); return headImg(a, 'corner a') + headImg(b, 'corner b'); }
     default: return '';
   }
 }
