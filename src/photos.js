@@ -26,4 +26,9 @@ export const PHOTOS = {
   'fincher': { src: '/photos/fincher.jpg', ar: 1.0072 },
   'mindhunter': { src: '/photos/mindhunter.jpg', ar: 0.6673 },
   'doctor': { src: '/photos/doctor.jpg', ar: 1.3333 },
+  'glasses': { src: '/photos/glasses.jpg', ar: 1.3333 },
+  'bar': { src: '/photos/bar.jpg', ar: 1.3333 },
+  'car': { src: '/photos/car.jpg', ar: 1.3333 },
+  'pool': { src: '/photos/pool.jpg', ar: 1.3281 },
+  'masks': { src: '/photos/masks.jpg', ar: 1.3333 },
 };

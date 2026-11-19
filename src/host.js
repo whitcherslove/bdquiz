@@ -253,19 +253,22 @@ function spawn(r) {
 }
 
 const HEADS = { s: '/photos/head-slava.png', y: '/photos/head-yulia.png' };
+const POLAROIDS = ['masks', 'pool', 'glasses', 'car', 'bar'];
 const headImg = (who, cls) => `<img class="head ${cls}" src="${HEADS[who]}" alt="">`;
 function heads() {
   switch (game.phase) {
     case 'intro': {
       const r = Q().round;
-      return r === 1 ? headImg('s', 'peek-br') : r === 2 ? headImg('y', 'peek-br') : headImg('s', 'peek-br') + headImg('y', 'peek-bl');
+      return r === 1 ? headImg('s', 'peek-br') : r === 2 ? headImg('y', 'peek-br') : headImg('s', 'peek-br') + headImg('y', 'peek-br2');
     }
     case 'board': {
+      // вместо голов — ваши фото, по очереди, на каждой третьей таблице
       const n = QN();
       if (n % 3) return '';
-      return n % 6 === 0 ? headImg('y', 'side-l') : headImg('s', 'side-r');
+      const key = POLAROIDS[(n / 3 - 1) % POLAROIDS.length];
+      return `<div class="polaroid ${n % 2 ? 'l' : 'r'}"><img src="${PHOTOS[key].src}" alt=""></div>`;
     }
-    case 'roundsum': return headImg('s', 'side-r') + headImg('y', 'side-l late');
+    case 'roundsum': return headImg('s', 'peek-c1') + headImg('y', 'peek-c2');
     case 'podium': return headImg('s', 'hype l') + headImg('y', 'hype r');
     case 'table': return headImg('y', 'top');
     case 'awards': return headImg('s', 'corner a') + headImg('y', 'corner b');
