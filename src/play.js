@@ -10,6 +10,7 @@ let game = null;
 let me = null;
 let mine = {};        // q_index -> мой ответ
 let standing = [];    // игроки по очкам
+let roundBoard = [];  // игроки по очкам текущего раунда
 
 const store = {
   get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
@@ -21,6 +22,10 @@ const center = (big, title, text = '', extra = '') =>
 const Q = () => QUESTIONS[game.q_index];
 const QN = () => QUESTIONS.slice(0, game.q_index + 1).filter(x => !x.round).length;
 const rank = () => standing.findIndex(p => p.id === me.id) + 1;
+const roundStart = i => { for (let k = i; k >= 0; k--) if (QUESTIONS[k].round) return k; return 0; };
+const roundNo = () => QUESTIONS[roundStart(game.q_index)].round;
+const rRank = () => roundBoard.findIndex(p => p.id === me.id) + 1;
+const myRound = () => (roundBoard.find(p => p.id === me.id) || { rp: 0 }).rp;
 
 /* ---------- данные ---------- */
 async function init() {
@@ -56,6 +61,13 @@ async function refresh() {
   ]);
   if (p.data) me = p.data;
   standing = list.data || [];
+  const rs = roundStart(game.q_index);
+  if (QUESTIONS[rs].round > 1 || game.phase === 'roundsum') {
+    const { data: ra } = await sb.from('answers').select('player_id,points').eq('game_id', game.id).gte('q_index', rs).lte('q_index', game.q_index);
+    const sum = {};
+    (ra || []).forEach(a => { sum[a.player_id] = (sum[a.player_id] || 0) + a.points; });
+    roundBoard = standing.map(x => ({ ...x, rp: sum[x.id] || 0 })).sort((a, b) => b.rp - a.rp);
+  } else roundBoard = [];
   mine = Object.fromEntries((ans.data || []).map(a => [a.q_index, a]));
 }
 
@@ -160,7 +172,7 @@ function renderQuestion(q) {
 
 function renderReveal(q) {
   const a = mine[game.q_index];
-  const place = `<p>Ты на ${rank()} месте</p>`;
+  const place = roundNo() > 1 ? `<p>В раунде ты на ${rRank()} месте</p>` : `<p>Ты на ${rank()} месте</p>`;
   const right = esc(rightText(q));
   if (!a) return show(center('0', 'Время вышло', `Правильно: ${right}`, place));
   if (q.type === 'num') {
@@ -179,12 +191,19 @@ function render() {
     case 'intro': return show(center(`${q.round}`, esc(q.title), 'Смотри на большой экран.') + reactPanel());
     case 'question': return renderQuestion(q);
     case 'reveal': return renderReveal(q);
-    case 'board':
-    case 'roundsum': {
+    case 'board': {
+      if (roundNo() > 1) {
+        const k = rRank(), prev = roundBoard[k - 2];
+        const gap = !prev ? 'Ты лидируешь в раунде!' : prev.rp === myRound() ? 'Плотная борьба: делишь место с соседом' : `${esc(prev.name)} впереди на ${pts(prev.rp - myRound())}`;
+        return show(center(`${k}`, 'место в раунде', `${pts(myRound())} за раунд. ${gap}`));
+      }
       const k = rank();
-      const gap = k > 1 && standing[k - 2] ? `${esc(standing[k - 2].name)} впереди на ${pts(standing[k - 2].score - me.score)}` : 'Ты лидируешь!';
-      return show(center(`${k}`, 'место', `${pts(me.score)}. ${gap}`) + (game.phase === 'roundsum' ? reactPanel() : ''));
+      const pr = standing[k - 2];
+      const gap = !(k > 1 && pr) ? 'Ты лидируешь!' : pr.score === me.score ? 'Плотная борьба: делишь место с соседом' : `${esc(pr.name)} впереди на ${pts(pr.score - me.score)}`;
+      return show(center(`${k}`, 'место', `${pts(me.score)}. ${gap}`));
     }
+    case 'roundsum':
+      return show(center(`${rRank()}`, 'место в раунде', `${pts(myRound())} за раунд`, `<p>В общем зачёте: ${rank()} место, ${pts(me.score)}</p>`) + reactPanel());
     default:
       return show(center(`${rank()}`, 'место в итоге', `${pts(me.score)}. Спасибо, что празднуешь с нами!`) + reactPanel());
   }

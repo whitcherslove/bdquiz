@@ -4,6 +4,7 @@ import { QUESTIONS, QT, TITLE } from './questions.js';
 import { PHOTOS } from './photos.js';
 import { ill, questionIll } from './ill.js';
 import { esc, badge, isLong, limitMs, pts, score, REACT_PHASES } from './shared.js';
+import { sfx, unlockAudio, toggleMute } from './sound.js';
 
 const tv = document.getElementById('tv');
 const msg = document.getElementById('msg');
@@ -19,6 +20,8 @@ let busy = false;
 let qrSvg = '';
 const seenReact = new Set();
 let lastReactTs = '1970-01-01T00:00:00Z';
+let lastPop = 0;
+let lastScreen = '';
 
 /* ---------- экран 1280×720, вписанный в любой телевизор ---------- */
 function fit() {
@@ -86,7 +89,7 @@ async function init() {
 function subscribe() {
   sb.channel(`host-${game.id}`)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'players', filter: `game_id=eq.${game.id}` }, ({ new: p }) => {
-      if (!players.some(x => x.id === p.id)) players.push(p);
+      if (!players.some(x => x.id === p.id)) { players.push(p); if (game.phase === 'lobby') sfx.join(); }
       if (game.phase === 'lobby') updateLobby();
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'answers', filter: `game_id=eq.${game.id}` }, ({ new: a }) => {
@@ -126,11 +129,19 @@ async function goTo(i) {
   runTimer();
 }
 
+let lastSec = null;
 function runTimer() {
   clearInterval(tick);
+  lastSec = null;
   tick = setInterval(() => {
     const lim = limitMs(Q());
     const left = Math.max(0, lim - (Date.now() - startLocal));
+    const sec = Math.ceil(left / 1000);
+    if (sec !== lastSec) {
+      if (lastSec !== null && sec <= 5 && sec > 0) (sec <= 2 ? sfx.tickLast : sfx.tick)();
+      if (lastSec !== null && sec === 0) sfx.timeUp();
+      lastSec = sec;
+    }
     const t = document.getElementById('timer');
     const fg = document.getElementById('ringfg');
     if (t) t.textContent = Math.ceil(left / 1000);
@@ -250,6 +261,7 @@ function spawn(r) {
     ? `<span class="w" style="background:${CONF[Math.floor(Math.random() * 4)]};transform:rotate(${(Math.random() * 16 - 8).toFixed(1)}deg)">${esc(r.kind)}</span>`
     : `<span class="e">${esc(r.kind)}</span>`) + `<span class="n">${esc(nameOf(r.player_id))}</span>`;
   fx.appendChild(el);
+  if (Date.now() - lastPop > 250) { lastPop = Date.now(); sfx.pop(); }
   setTimeout(() => el.remove(), 3600);
 }
 
@@ -310,7 +322,7 @@ function heads() {
       if (key) return `<div class="polaroid ${QN() % 2 ? 'l' : 'r'}"><img src="${PHOTOS[key].src}" alt=""></div>`;
       return headImg(h[0], 'board-r');
     }
-    case 'roundsum': return headImg(h[0], 'peek-c1') + headImg(h[1], 'peek-c2');
+    case 'roundsum': return headImg(h[0], 'corner sum a') + headImg(h[1], 'corner sum b');
     case 'podium': return headImg(h[0], 'hype l') + headImg(h[1], 'hype r');
     case 'table': return headImg(h[0], 'top');
     case 'awards': return headImg(h[0], 'corner a') + headImg(h[1], 'corner b');
@@ -404,8 +416,13 @@ function render() {
     case 'reveal': html = viewReveal(q); break;
     case 'board': {
       const roundOver = i >= QUESTIONS.length - 1 || QUESTIONS[i + 1].round;
-      html = `<div class="view">${head(q)}<h2 class="htitle">Таблица лидеров</h2>
-        <div class="board">${rowsHtml(ranked().slice(0, 5), p => { const a = ansOf(p.id, i); return { d: a && a.points ? `+${a.points}` : '', s: p.score }; })}</div>
+      const rs = roundStart(i), R = QUESTIONS[rs];
+      const inRound = R.round > 1;
+      const list = inRound ? [...players].sort((a, b) => roundPts(b, rs, i) - roundPts(a, rs, i)) : ranked();
+      const delta = p => { const a = ansOf(p.id, i); return a && a.points ? `+${a.points}` : ''; };
+      html = `<div class="view">${head(q)}<h2 class="htitle">${inRound ? `Таблица раунда «${esc(R.title)}»` : 'Таблица лидеров'}</h2>
+        ${inRound ? '<p class="colh" style="margin:10px 0 0">Очки только за этот раунд. Общий зачёт покажем в конце раунда</p>' : ''}
+        <div class="board">${rowsHtml(list.slice(0, 5), p => ({ d: delta(p), s: inRound ? roundPts(p, rs, i) : p.score }))}</div>
         <div class="foot" style="margin-top:auto"><button class="btn" data-act="next">${roundOver ? 'Итоги раунда' : 'Следующий вопрос'}</button></div></div>`;
       break;
     }
@@ -414,13 +431,11 @@ function render() {
       const byRound = [...players].sort((a, b) => roundPts(b, rs, i) - roundPts(a, rs, i));
       const top = byRound[0];
       const last = i >= QUESTIONS.length - 1;
-      html = `<div class="view"><div class="qhead"><span class="tag"><i></i>Раунд ${R.round} из 3</span><span class="count">${QN()} из ${QT}</span></div>
-        <h2 class="htitle">Итоги раунда «${esc(R.title)}»</h2>
-        <div class="sumgrid">
-          <div><p class="colh">Лучший в раунде</p>
-            ${top ? `<div class="hero"><b>${esc(top.name)}</b><span>${pts(roundPts(top, rs, i))} за раунд</span></div>` : ''}
-            ${rowsHtml(byRound.slice(1, 4), p => ({ s: `+${roundPts(p, rs, i)}` }), 1)}</div>
-          <div><p class="colh">Общий зачёт</p>${rowsHtml(ranked().slice(0, 5), p => ({ s: p.score }))}</div>
+      html = `<div class="view"><div class="qhead"><span class="tag"><i></i>Раунд ${R.round} из 3</span></div>
+        <h2 class="htitle sum">Итоги раунда «${esc(R.title)}»</h2>
+        <div class="sumgrid full">
+          <div><p class="colh">В этом раунде${top ? `: лучше всех ${esc(top.name)}` : ''}</p>${rowsHtml(byRound, p => ({ s: `+${roundPts(p, rs, i)}` }))}</div>
+          <div><p class="colh">Общий зачёт</p>${rowsHtml(ranked(), p => ({ s: p.score }))}</div>
         </div>${foot(last ? 'Объявить победителей' : `Раунд ${R.round + 1}`)}</div>`;
       break;
     }
@@ -445,6 +460,11 @@ function render() {
   if (game.phase !== 'lobby') html = html.replace(/(<div class="foot"[^>]*>)/, '$1<button class="btn back" data-act="back">Назад</button>');
   tv.innerHTML = `<div class="lace top"></div>${html}${heads()}<div class="fx" id="fx"></div><div class="lace bottom"></div>`;
   if (game.phase === 'lobby') updateLobby();
+  const key = `${game.phase}:${game.q_index}`;
+  if (key !== lastScreen) {
+    if (lastScreen) ({ intro: sfx.intro, question: sfx.start, reveal: sfx.reveal, board: sfx.board, roundsum: sfx.board, podium: sfx.fanfare, table: sfx.board, awards: sfx.fanfare }[game.phase] || (() => {}))();
+    lastScreen = key;
+  }
 }
 
 function updateLobby() {
@@ -455,6 +475,7 @@ function updateLobby() {
 }
 
 /* ---------- управление ---------- */
+document.addEventListener('pointerdown', unlockAudio);
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b || !game) return;
@@ -464,7 +485,9 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (!game) return;
+  unlockAudio();
   const k = e.key.toLowerCase();
+  if (k === 'm' || k === 'ь') showMsg(toggleMute() ? 'Звук выключен (M — включить)' : 'Звук включён', 1200);
   if (k === 'f' || k === 'а') document.documentElement.requestFullscreen?.();
   if (k === 'arrowleft' && game.phase !== 'lobby') back();
   if (k === 'arrowright' || k === ' ') { e.preventDefault(); game.phase === 'question' ? reveal() : game.phase !== 'awards' && next(); }
@@ -473,7 +496,7 @@ document.addEventListener('keydown', e => {
 // Подстраховка: если realtime-соединение рвётся (VPN, фильтры), раз в 2 секунды сверяемся с базой сами
 setInterval(async () => {
   if (!game || busy) return;
-  if (game.phase === 'lobby') { await loadPlayers(); updateLobby(); return; }
+  if (game.phase === 'lobby') { const before = players.length; await loadPlayers(); if (players.length > before) sfx.join(); updateLobby(); return; }
   if (REACT_PHASES.includes(game.phase)) {
     const { data: rs } = await sb.from('reactions').select().eq('game_id', game.id).gt('created_at', lastReactTs).order('created_at');
     (rs || []).forEach(spawn);
